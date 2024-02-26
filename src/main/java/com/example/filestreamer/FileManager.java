@@ -1,6 +1,10 @@
 package com.example.filestreamer;
 
 import java.io.*;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
+import java.nio.channels.ReadableByteChannel;
+import java.nio.channels.WritableByteChannel;
 
 public class FileManager {
     static void sendFile(DataOutputStream outputStream, String[] filesArray) throws IOException {
@@ -13,57 +17,38 @@ public class FileManager {
     static void sendFile(DataOutputStream outputStream, File fileToSend) throws IOException {
         send(outputStream, fileToSend);
     }
+
     private static void send(DataOutputStream outputStream, File file) throws IOException {
-        FileInputStream fileInputStream = new FileInputStream(file);
-        BufferedInputStream bufferedInputStream = new BufferedInputStream(fileInputStream);
+        System.out.println("FILE befor try");
 
-        byte[] buffer = new byte[4096];
-        int bytesRead;
-
-        while ((bytesRead = fileInputStream.read(buffer)) != -1) {
-            outputStream.writeInt(bytesRead);
-            outputStream.write(buffer, 0, bytesRead);
-        }
-
-
-        outputStream.writeInt(-1);
-
-        outputStream.flush();
-        System.out.println("File sent.");
-        fileInputStream.close();
-        bufferedInputStream.close();
-    }
-
-
-    static void receiveFile(DataInputStream inputStream, String[] filesArray) throws IOException {
-        for (String fileName : filesArray) {
-            File file = new File(FilePaths.FILE_PATH_CLIENT.path + fileName);
-            FileOutputStream fileOutputStream = new FileOutputStream(file);
-            receive(inputStream,fileOutputStream);
-        }
-    }
-
-    static void receiveFile(DataInputStream inputStream, File receivedFile) throws IOException {
-        FileOutputStream fileOutputStream = new FileOutputStream(receivedFile);
-        receive(inputStream,fileOutputStream);
-    }
-
-    private static void receive(DataInputStream inputStream,FileOutputStream fileOutputStream) throws IOException {
-        BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(fileOutputStream);
-
-
-        byte[] buffer = new byte[4096];
-        int bytesRead;
-
-        while ((bytesRead = inputStream.readInt()) != -1) {
-            if (bytesRead == -1) {
-                break;
+        try (FileChannel inChannel = new FileInputStream(file).getChannel();
+             WritableByteChannel writableByteChannel = Channels.newChannel(outputStream)) {
+            // inChannel.transferTo(0, inChannel.size(), outChannel); // original -- apparently has trouble copying large files on Windows
+            // magic number for Windows, (64Mb - 32Kb)
+            int maxCount = (64 * 1024 * 1024) - (32 * 1024);
+            long size = inChannel.size();
+            long position = 0;
+            System.out.println("FILE SEnding");
+            while (position < size) {
+                position += inChannel.transferTo(position, maxCount, writableByteChannel);
             }
-            inputStream.readFully(buffer, 0, bytesRead); // Read file content
-            fileOutputStream.write(buffer, 0, bytesRead);
+            System.out.println("FILE SENT");
         }
+    }
 
-        bufferedOutputStream.close();
-        fileOutputStream.close();
+    public static void receiveFile(DataInputStream inputStream, File receivedFile) throws IOException {
+
+
+        try (FileOutputStream fileOutputStream = new FileOutputStream(receivedFile)) {
+            ReadableByteChannel readableByteChannel;
+            FileChannel fileChannel;
+            readableByteChannel = Channels.newChannel(inputStream);
+            fileChannel = fileOutputStream.getChannel();
+            System.out.println("FILE GONNNA receive");
+            fileChannel.transferFrom(readableByteChannel, 0, Long.MAX_VALUE);
+            System.out.println("FILE RECEIVED");
+            fileChannel.close();
+            readableByteChannel.close();
+        }
     }
 }
