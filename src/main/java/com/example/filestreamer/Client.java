@@ -44,23 +44,16 @@ public class Client {
             Socket client = new Socket(ip, port);
             DataInputStream in = new DataInputStream(client.getInputStream());
             List<String> files = new ArrayList<>();
-        System.out.println("PRINTING IN CONNECT METHOD");
+            System.out.println("PRINTING IN CONNECT METHOD");
 
-            while (true) {//method gets called here too so not everything gets loaded
+            while (true) {
                 String name = in.readUTF();
                 if(name.equals("end")){
                     break;
                 }
                 files.add(name);
-                //System.out.println(in.readUTF());
             }
             new MainUI(client, files);
-//        ServerHandler serverHandler = new ServerHandler(client);
-//        pool.execute(serverHandler);
-//        } catch (IOException e){
-//
-//        }
-
     }
 
     private HashMap<String, File> getFilesInFolder() {

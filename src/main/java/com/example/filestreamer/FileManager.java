@@ -7,19 +7,8 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.WritableByteChannel;
 
 public class FileManager {
-    static void sendFile(DataOutputStream outputStream, String[] filesArray) throws IOException {
-        for (String fileName : filesArray) {
-            File file = new File(FilePaths.FILE_PATH_SERVER.path + fileName);
-            send(outputStream, file);
-        }
-    }
-
-    static void sendFile(DataOutputStream outputStream, File fileToSend) throws IOException {
-        send(outputStream, fileToSend);
-    }
-
-    private static void send(DataOutputStream outputStream, File file) throws IOException {
-        System.out.println("FILE befor try");
+    static void sendFile(DataOutputStream outputStream, File file) throws IOException {
+        System.out.println("FILE before try");
 
         try (FileChannel inChannel = new FileInputStream(file).getChannel();
              WritableByteChannel writableByteChannel = Channels.newChannel(outputStream)) {
@@ -37,8 +26,6 @@ public class FileManager {
     }
 
     public static void receiveFile(DataInputStream inputStream, File receivedFile) throws IOException {
-
-
         try (FileOutputStream fileOutputStream = new FileOutputStream(receivedFile)) {
             ReadableByteChannel readableByteChannel;
             FileChannel fileChannel;

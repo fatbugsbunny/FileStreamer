@@ -6,10 +6,11 @@ import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.net.Socket;
-import java.net.URL;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -29,9 +30,13 @@ public class MainUI extends JFrame {
     private DefaultListModel<String> fileListModel;
     private ExecutorService pool = Executors.newCachedThreadPool();
     private Socket socket;
+    private DataOutputStream out;
+    private DataInputStream in;
 
     public MainUI(Socket socket, List<String> fileNames) throws IOException {
         this.socket = socket;
+        out = new DataOutputStream(socket.getOutputStream());
+        in = new DataInputStream(socket.getInputStream());
 
         for (String name : fileNames) {
             fileListModel.addElement(name);
@@ -62,7 +67,14 @@ public class MainUI extends JFrame {
         upload.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                List<File> filesToSend = getFilesToSend();
+                if(filesToSend == null){
+                    return;
+                }
 
+                for(File file: filesToSend){
+                    upload(file);
+                }
             }
         });
 
@@ -75,10 +87,33 @@ public class MainUI extends JFrame {
     }
 
     private void download(File file) {
-        FileHandler handler;
+        ReceiveHandler handler;
         try {
+            out.writeUTF("download");
+            System.out.println("FILE NAME SENT");
+            out.writeUTF(file.getName());
+            String ip = in.readUTF();
+            System.out.println(ip);
+            int port = in.readInt();
+            System.out.println(port);
+            handler = new ReceiveHandler(ip,port,true, file);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        pool.execute(handler);
+    }
 
-            handler = new FileHandler(true, socket, file);
+    private void upload(File file){
+        ReceiveHandler handler;
+        try {
+            out.writeUTF("upload");
+            System.out.println("FILE NAME SENT");
+            out.writeUTF(file.getName());
+            String ip = in.readUTF();
+            System.out.println(ip);
+            int port = in.readInt();
+            System.out.println(port);
+            handler = new ReceiveHandler(ip,port,false, file);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -124,5 +159,16 @@ public class MainUI extends JFrame {
             return chooser.getSelectedFile().getAbsolutePath() + File.separator;
         }
         return"";
+    }
+
+    private List<File> getFilesToSend(){
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Choose your files");
+        chooser.setMultiSelectionEnabled(true);
+        int returnVal = chooser.showOpenDialog(null);
+        if (returnVal == JFileChooser.APPROVE_OPTION) {
+            return Arrays.asList(chooser.getSelectedFiles());
+        }
+        return null;
     }
 }
