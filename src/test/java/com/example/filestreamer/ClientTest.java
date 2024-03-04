@@ -10,7 +10,7 @@ class ClientTest {
     @Test
     void clientAwaitsConnections(){
         Client client = new Client("ann");
-        assertThrows(IOException.class, client::start);
+        assertThrows(IOException.class, client::run);
     }
 
     @Test
@@ -26,7 +26,7 @@ class ClientTest {
         Client jake = new Client("Jake");
         Client paul = new Client("Paul");
 
-        jake.start();
+        jake.run();
         paul.connect(jake.getIpAddress(),jake.getPort());
     }
 }

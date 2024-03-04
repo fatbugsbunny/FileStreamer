@@ -1,16 +1,19 @@
 package com.example.filestreamer;
 
 import javax.swing.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -26,21 +29,44 @@ public class MainUI extends JFrame {
     private JList clientList;
     private JTextField clientFilterField;
     private JPanel panel;
-    private DefaultListModel<String> clientListModel;
+    private DefaultListModel<Client> clientListModel;
     private DefaultListModel<String> fileListModel;
     private ExecutorService pool = Executors.newCachedThreadPool();
     private Socket socket;
     private DataOutputStream out;
     private DataInputStream in;
 
-    public MainUI(Socket socket, List<String> fileNames) throws IOException {
+    public MainUI(Socket socket) throws IOException {
         this.socket = socket;
         out = new DataOutputStream(socket.getOutputStream());
         in = new DataInputStream(socket.getInputStream());
 
-        for (String name : fileNames) {
-            fileListModel.addElement(name);
+
+        System.out.println("GET FILE NAMES");
+        while (true) {
+            String fileName = in.readUTF();
+            if (fileName.equals("end")) {
+                break;
+            }
+            fileListModel.addElement(fileName);
         }
+
+        System.out.println("GETTING OTHER CLIENTS");
+        while (true) {
+
+            String name = in.readUTF();
+            if (name.equals("end")) {
+                break;
+            }
+
+            String ip = in.readUTF();
+            System.out.println("PORT UI");
+            int port = in.readInt();
+            System.out.println(port);
+            Client client = new Client(name, ip,port);
+            clientListModel.addElement(client);
+        }
+
 
         setContentPane(panel);
         setTitle("File selector");
@@ -48,12 +74,24 @@ public class MainUI extends JFrame {
         setVisible(true);
         setSize(400, 400);
 
+
         download.addActionListener(e -> {
             List<String> selectedFiles = fileList.getSelectedValuesList();
             String directory = getDirectory();
             for (String fileName : selectedFiles) {
                 File file = new File(directory + fileName);
-                    download(file);
+                download(file);
+            }
+        });
+
+        upload.addActionListener(e -> {
+            List<File> filesToSend = getFilesToSend();
+            if (filesToSend == null) {
+                return;
+            }
+
+            for (File file : filesToSend) {
+                upload(file);
             }
         });
 
@@ -64,26 +102,38 @@ public class MainUI extends JFrame {
             }
         });
 
-        upload.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                List<File> filesToSend = getFilesToSend();
-                if(filesToSend == null){
-                    return;
-                }
-
-                for(File file: filesToSend){
-                    upload(file);
-                }
-            }
-        });
-
         clientFilterField.addKeyListener(new KeyAdapter() {
             @Override
             public void keyTyped(KeyEvent e) {
                 filterClientList();
             }
         });
+        clientList.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    int index = clientList.locationToIndex(e.getPoint());
+                    if (index >= 0) {
+                        Client selectedClient = clientListModel.getElementAt(index);
+                        try {
+                            Socket client = new Socket(selectedClient.getIpAddress(), selectedClient.getPort());
+                            new FileTransferUI(client, selectedClient.getName());
+                        } catch (IOException j) {
+                            j.printStackTrace();
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    private void createUIComponents() {
+        clientListModel = new DefaultListModel<>();
+        fileListModel = new DefaultListModel<>();
+
+        clientList = new JList<>(clientListModel);
+
+        fileList = new JList<>(fileListModel);
     }
 
     private void download(File file) {
@@ -96,37 +146,28 @@ public class MainUI extends JFrame {
             System.out.println(ip);
             int port = in.readInt();
             System.out.println(port);
-            handler = new ReceiveHandler(ip,port,true, file);
+            handler = new ReceiveHandler(ip, port, true, file);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
         pool.execute(handler);
     }
 
-    private void upload(File file){
+    private void upload(File file) {
         ReceiveHandler handler;
         try {
             out.writeUTF("upload");
             System.out.println("FILE NAME SENT");
-            out.writeUTF(file.getName());
+            // out.writeUTF(file.getName()); HERE IF IT DOESNT WORK
             String ip = in.readUTF();
             System.out.println(ip);
             int port = in.readInt();
             System.out.println(port);
-            handler = new ReceiveHandler(ip,port,false, file);
+            handler = new ReceiveHandler(ip, port, false, file);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
         pool.execute(handler);
-    }
-
-    private void createUIComponents() {
-        clientListModel = new DefaultListModel<>();
-        fileListModel = new DefaultListModel<>();
-
-        clientList = new JList<>(clientListModel);
-
-        fileList = new JList<>(fileListModel);
     }
 
 
@@ -135,7 +176,7 @@ public class MainUI extends JFrame {
     }
 
     private void filterClientList() {
-        filter(clientFilterField, clientListModel, clientList);
+        filterClient(clientFilterField, clientListModel, clientList);
     }
 
     private void filter(JTextField fileFilterField, DefaultListModel<String> fileListModel, JList<String> fileList) {
@@ -150,6 +191,18 @@ public class MainUI extends JFrame {
         fileList.setModel(filteredModel);
     }
 
+    private void filterClient(JTextField fileFilterField, DefaultListModel<Client> fileListModel, JList<Client> clientList) {
+        String filterText = fileFilterField.getText().toLowerCase();
+        DefaultListModel<Client> filteredModel = new DefaultListModel<>();
+        for (int i = 0; i < fileListModel.size(); i++) {
+            Client client = fileListModel.getElementAt(i);
+            if (client.getName().toLowerCase().contains(filterText)) {
+                filteredModel.addElement(client);
+            }
+        }
+        clientList.setModel(filteredModel);
+    }
+
     private String getDirectory() {
         JFileChooser chooser = new JFileChooser();
         chooser.setDialogTitle("Select a Directory");
@@ -158,10 +211,10 @@ public class MainUI extends JFrame {
         if (returnVal == JFileChooser.APPROVE_OPTION) {
             return chooser.getSelectedFile().getAbsolutePath() + File.separator;
         }
-        return"";
+        return "";
     }
 
-    private List<File> getFilesToSend(){
+    private List<File> getFilesToSend() {
         JFileChooser chooser = new JFileChooser();
         chooser.setDialogTitle("Choose your files");
         chooser.setMultiSelectionEnabled(true);
@@ -169,6 +222,6 @@ public class MainUI extends JFrame {
         if (returnVal == JFileChooser.APPROVE_OPTION) {
             return Arrays.asList(chooser.getSelectedFiles());
         }
-        return null;
+        return Collections.emptyList();
     }
 }

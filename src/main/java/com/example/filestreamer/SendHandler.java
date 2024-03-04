@@ -11,18 +11,16 @@ import java.net.UnknownHostException;
 import java.util.HashMap;
 
 public class SendHandler implements Runnable {
-    private DataInputStream in;
-    private DataOutputStream out;
-    private String file;
     private boolean whatTodo;
+    private boolean serverConnection;
     private ServerSocket serverSocket = new ServerSocket(0);
     private String ip;
     private int port;
     private HashMap<String, File> fileMap;
 
-    public SendHandler(HashMap<String, File> fileMap, Boolean whatToDo, String file) throws IOException {
+    public SendHandler(HashMap<String, File> fileMap, Boolean whatToDo, Boolean serverConnection) throws IOException {
         this.whatTodo = whatToDo;
-        this.file = file;
+        this.serverConnection = serverConnection;
         port = serverSocket.getLocalPort();
         ip = getIp();
         this.fileMap = fileMap;
@@ -33,13 +31,19 @@ public class SendHandler implements Runnable {
         try (Socket receiver = serverSocket.accept()) {
             System.out.println("SERVER" + port);
             System.out.println("SOCKET CREATED");
-            in = new DataInputStream(receiver.getInputStream());
-            out = new DataOutputStream(receiver.getOutputStream());
+            DataInputStream in = new DataInputStream(receiver.getInputStream());
+            DataOutputStream out = new DataOutputStream(receiver.getOutputStream());
             String name = in.readUTF();
             if (whatTodo) {
                 FileManager.sendFile(out, fileMap.get(name));
             } else {
-                File file = new File(FilePaths.FILE_PATH_SERVER.path.toString() + File.separator + name);
+                //create new file in location so it can be read
+                File file;
+                if(serverConnection){
+                file = new File(FilePaths.FILE_PATH_SERVER.path.toString() + File.separator + name);}
+                else {
+                    file = new File(FilePaths.FILE_PATH_CLIENT.path.toString() + File.separator + name);
+                }
                 FileManager.receiveFile(in, file);
             }
         } catch (IOException e) {

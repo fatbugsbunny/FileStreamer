@@ -7,8 +7,6 @@ import java.io.IOException;
 import java.net.Socket;
 
 public class ReceiveHandler implements Runnable {
-    private DataInputStream in;
-    private DataOutputStream out;
     private File file;
     private boolean whatTodo;
     private int port;
@@ -27,8 +25,8 @@ public class ReceiveHandler implements Runnable {
         System.out.println(ip);
         System.out.println(port);
         try (Socket receiver = new Socket(ip, port)) {
-            in = new DataInputStream(receiver.getInputStream());
-            out = new DataOutputStream(receiver.getOutputStream());
+            DataInputStream in = new DataInputStream(receiver.getInputStream());
+            DataOutputStream out = new DataOutputStream(receiver.getOutputStream());
             out.writeUTF(file.getName());
             if (whatTodo) {
                 System.out.println("FILE HANDLER");
