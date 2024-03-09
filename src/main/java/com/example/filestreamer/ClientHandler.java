@@ -8,16 +8,17 @@ import java.net.Socket;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class ClientHandler implements Runnable {
     private DataInputStream in;
     private DataOutputStream out;
     private HashMap<String, File> fileMap;
     private ExecutorService pool;
-    private ArrayList<Client> clients;
+    private LinkedBlockingQueue<Client> clients;
     private Boolean serverConnection;
 
-    public ClientHandler(Socket socket, HashMap<String, File> fileMap, ArrayList<Client> clients, Boolean serverConnection) throws IOException {
+    public ClientHandler(Socket socket, HashMap<String, File> fileMap, LinkedBlockingQueue<Client> clients, Boolean serverConnection) throws IOException {
         this.clients = clients;
         this.fileMap = fileMap;
         in = new DataInputStream(socket.getInputStream());
@@ -33,7 +34,6 @@ public class ClientHandler implements Runnable {
             if (serverConnection) {
                 informAboutOtherClients();
             }
-
             while (true) {
                 SendHandler handler;
 

@@ -159,6 +159,4 @@ public class FileTransferUI extends JFrame{
         }
         pool.execute(handler);
     }
-
 }
-

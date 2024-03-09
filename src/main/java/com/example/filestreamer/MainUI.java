@@ -3,10 +3,7 @@ package com.example.filestreamer;
 import javax.swing.*;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
-import java.awt.event.KeyAdapter;
-import java.awt.event.KeyEvent;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.awt.event.*;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -31,12 +28,14 @@ public class MainUI extends JFrame {
     private JPanel panel;
     private DefaultListModel<Client> clientListModel;
     private DefaultListModel<String> fileListModel;
+    private WindowCloseListener closeListener;
     private ExecutorService pool = Executors.newCachedThreadPool();
     private Socket socket;
     private DataOutputStream out;
     private DataInputStream in;
 
-    public MainUI(Socket socket) throws IOException {
+    public MainUI(Socket socket,WindowCloseListener closeListener) throws IOException {
+        this.closeListener = closeListener;
         this.socket = socket;
         out = new DataOutputStream(socket.getOutputStream());
         in = new DataInputStream(socket.getInputStream());
@@ -63,10 +62,9 @@ public class MainUI extends JFrame {
             System.out.println("PORT UI");
             int port = in.readInt();
             System.out.println(port);
-            Client client = new Client(name, ip,port);
+            Client client = new Client(name, ip, port);
             clientListModel.addElement(client);
         }
-
 
         setContentPane(panel);
         setTitle("File selector");
@@ -74,6 +72,39 @@ public class MainUI extends JFrame {
         setVisible(true);
         setSize(400, 400);
 
+        this.addWindowListener(new WindowListener() {
+            @Override
+            public void windowOpened(WindowEvent e) {
+            }
+
+            @Override
+            public void windowClosing(WindowEvent e) {
+            }
+
+            @Override
+            public void windowClosed(WindowEvent e) {
+                if (closeListener != null) {
+                    closeListener.onWindowClosed();
+                }
+            }
+
+            @Override
+            public void windowIconified(WindowEvent e) {
+            }
+
+            @Override
+            public void windowDeiconified(WindowEvent e) {
+            }
+
+            @Override
+            public void windowActivated(WindowEvent e) {
+            }
+
+            @Override
+            public void windowDeactivated(WindowEvent e) {
+            }
+
+        });
 
         download.addActionListener(e -> {
             List<String> selectedFiles = fileList.getSelectedValuesList();
@@ -169,7 +200,6 @@ public class MainUI extends JFrame {
         }
         pool.execute(handler);
     }
-
 
     private void filterFileList() {
         filter(fileFilterField, fileListModel, fileList);

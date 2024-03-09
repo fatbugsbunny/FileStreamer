@@ -68,6 +68,4 @@ public class SendHandler implements Runnable {
         }
         return localhost.getHostAddress();
     }
-
-
 }

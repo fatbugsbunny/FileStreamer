@@ -7,21 +7,21 @@ import java.net.Socket;
 import java.io.*;
 import java.net.UnknownHostException;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 
-public class Client implements Runnable {
+public class Client implements Runnable, WindowCloseListener {
+    private CountDownLatch countDownLatch = new CountDownLatch(1);
     private String ipAddress;
     private int port;
-    private ArrayList<Client> knownClients;
+    private LinkedBlockingQueue<Client> knownClients;
     private String name;
-    private ExecutorService pool = Executors.newCachedThreadPool();
-    private DataInputStream in;
+    private ExecutorService clientPool = Executors.newCachedThreadPool();
+//    private ExecutorService runPool = Executors.newSingleThreadExecutor();
 
     public Client(String name) {
         ipAddress = getIp();
         this.name = name;
-        knownClients = new ArrayList<>();
+        knownClients = new LinkedBlockingQueue<>();
     }
 
     public Client(String name, String ip) {
@@ -33,31 +33,43 @@ public class Client implements Runnable {
         this(name, ip);
         this.port = port;
     }
-
     @Override
     public void run() {
 
         try (ServerSocket serverSocket = new ServerSocket(0)) {
 
-            System.out.println("PORT:" + serverSocket.getLocalPort());
+            System.out.println("A Client prints, PORT:" + serverSocket.getLocalPort());
             port = serverSocket.getLocalPort();
+            System.out.println(port);
+            countDownLatch.countDown();
+
             while (true) {
                 HashMap<String, File> files = getFilesInFolder();
                 Socket client = serverSocket.accept();
+                //Overload the constructor isntead
                 ClientHandler clientHandler = new ClientHandler(client, files, knownClients, false);
-                pool.execute(clientHandler);
+                clientPool.execute(clientHandler);
             }
         } catch (IOException e) {
             System.out.println("IOException caught");
             e.printStackTrace();
         }
     }
-
-    public void connect(String ip, int port) throws IOException {
-        Socket mainClient = new Socket(ip, port);
-        new MainUI(mainClient);
+    public void shutDown(){
+        clientPool.shutdown();
     }
 
+    public void connect(String ip, int port) throws IOException, InterruptedException {
+        clientPool.execute(this);
+        countDownLatch.await();
+        Socket mainClient = new Socket(ip, port);
+        DataOutputStream out = new DataOutputStream(mainClient.getOutputStream());
+        out.writeUTF(name);
+        out.writeUTF(ip);
+        System.out.println(this.port);
+        out.writeInt(this.port);
+        new MainUI(mainClient,this);
+    }
 
     private HashMap<String, File> getFilesInFolder() {
         HashMap<String, File> map = new HashMap<>();
@@ -92,7 +104,7 @@ public class Client implements Runnable {
         return port;
     }
 
-    public ArrayList<Client> getKnownClients() {
+    public LinkedBlockingQueue<Client> getKnownClients() {
         return knownClients;
     }
 
@@ -115,5 +127,11 @@ public class Client implements Runnable {
     @Override
     public String toString() {
         return name;
+    }
+
+    @Override
+    public void onWindowClosed() {
+        // This method will be called when the window is closed
+        shutDown();
     }
 }
