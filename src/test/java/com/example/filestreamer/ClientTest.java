@@ -14,7 +14,7 @@ class ClientTest {
     }
 
     @Test
-    void clientConnectsToServer() throws IOException {
+    void clientConnectsToServer() throws IOException, InterruptedException, ClassNotFoundException {
         Server server = new Server();
         server.start();
         Client client = new Client("Jake");

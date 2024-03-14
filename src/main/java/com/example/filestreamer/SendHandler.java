@@ -11,12 +11,12 @@ import java.net.UnknownHostException;
 import java.util.HashMap;
 
 public class SendHandler implements Runnable {
-    private boolean whatTodo;
-    private boolean serverConnection;
-    private ServerSocket serverSocket = new ServerSocket(0);
-    private String ip;
-    private int port;
-    private HashMap<String, File> fileMap;
+    private final boolean whatTodo;
+    private final boolean serverConnection;
+    private final ServerSocket serverSocket = new ServerSocket(0);
+    private final String ip;
+    private final int port;
+    private final HashMap<String, File> fileMap;
 
     public SendHandler(HashMap<String, File> fileMap, Boolean whatToDo, Boolean serverConnection) throws IOException {
         this.whatTodo = whatToDo;
@@ -39,9 +39,9 @@ public class SendHandler implements Runnable {
             } else {
                 //create new file in location so it can be read
                 File file;
-                if(serverConnection){
-                file = new File(FilePaths.FILE_PATH_SERVER.path.toString() + File.separator + name);}
-                else {
+                if (serverConnection) {
+                    file = new File(FilePaths.FILE_PATH_SERVER.path.toString() + File.separator + name);
+                } else {
                     file = new File(FilePaths.FILE_PATH_CLIENT.path.toString() + File.separator + name);
                 }
                 FileManager.receiveFile(in, file);

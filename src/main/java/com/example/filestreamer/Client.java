@@ -1,22 +1,27 @@
 package com.example.filestreamer;
 
 import javax.swing.*;
+import java.io.File;
+import java.io.IOException;
+import java.io.Serializable;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.io.*;
 import java.net.UnknownHostException;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 
-public class Client implements Runnable, WindowCloseListener {
-    private CountDownLatch countDownLatch = new CountDownLatch(1);
+public class Client implements Runnable, WindowCloseListener, HasLocalFiles, Serializable {
+    transient final ExecutorService clientPool = Executors.newCachedThreadPool();
+    transient final CountDownLatch countDownLatch = new CountDownLatch(1);
+    private final LinkedBlockingQueue<Client> knownClients;
+    private final String name;
     private String ipAddress;
     private int port;
-    private LinkedBlockingQueue<Client> knownClients;
-    private String name;
-    private ExecutorService clientPool = Executors.newCachedThreadPool();
-//    private ExecutorService runPool = Executors.newSingleThreadExecutor();
 
     public Client(String name) {
         ipAddress = getIp();
@@ -33,21 +38,21 @@ public class Client implements Runnable, WindowCloseListener {
         this(name, ip);
         this.port = port;
     }
+
     @Override
     public void run() {
+        try (ServerSocket openSocket = new ServerSocket(0)) {
 
-        try (ServerSocket serverSocket = new ServerSocket(0)) {
-
-            System.out.println("A Client prints, PORT:" + serverSocket.getLocalPort());
-            port = serverSocket.getLocalPort();
+            System.out.println("A Client prints, PORT:" + openSocket.getLocalPort());
+            port = openSocket.getLocalPort();
             System.out.println(port);
             countDownLatch.countDown();
 
+            Socket clientSocket = openSocket.accept();
             while (true) {
                 HashMap<String, File> files = getFilesInFolder();
-                Socket client = serverSocket.accept();
                 //Overload the constructor isntead
-                ClientHandler clientHandler = new ClientHandler(client, files, knownClients, false);
+                ServerConnection clientHandler = new ServerConnection(clientSocket);
                 clientPool.execute(clientHandler);
             }
         } catch (IOException e) {
@@ -55,23 +60,24 @@ public class Client implements Runnable, WindowCloseListener {
             e.printStackTrace();
         }
     }
-    public void shutDown(){
+
+    public void shutDown() {
         clientPool.shutdown();
     }
 
-    public void connect(String ip, int port) throws IOException, InterruptedException {
+    public void connect(String ip, int port) throws IOException, InterruptedException, ClassNotFoundException {
         clientPool.execute(this);
         countDownLatch.await();
-        Socket mainClient = new Socket(ip, port);
-        DataOutputStream out = new DataOutputStream(mainClient.getOutputStream());
-        out.writeUTF(name);
-        out.writeUTF(ip);
+        Socket serverSocket = new Socket(ip, port);
+        ServerConnection serverConnection = new ServerConnection(serverSocket);
+
+        serverConnection.addClient(new ClientInfo(name, ip, port));
         System.out.println(this.port);
-        out.writeInt(this.port);
-        new MainUI(mainClient,this);
+
+        new MainUI(serverConnection, this);
     }
 
-    private HashMap<String, File> getFilesInFolder() {
+    public HashMap<String, File> getFilesInFolder() {
         HashMap<String, File> map = new HashMap<>();
         File customDirectory = FilePaths.FILE_PATH_CLIENT.path.toFile();
         JFileChooser fileChooser = new JFileChooser(customDirectory);
@@ -85,6 +91,7 @@ public class Client implements Runnable, WindowCloseListener {
         }
         return map;
     }
+
 
     private String getIp() {
         InetAddress localhost;

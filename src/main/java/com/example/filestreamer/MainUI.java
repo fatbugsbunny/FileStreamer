@@ -1,11 +1,7 @@
 package com.example.filestreamer;
 
 import javax.swing.*;
-import javax.swing.event.ListSelectionEvent;
-import javax.swing.event.ListSelectionListener;
 import java.awt.event.*;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.net.Socket;
@@ -16,6 +12,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class MainUI extends JFrame {
+    private final WindowCloseListener closeListener;
+    private final ExecutorService pool = Executors.newCachedThreadPool();
+    private final ServerConnection serverConnection;
     private JPanel panel1;
     private JTextField fileFilterField;
     private JScrollPane ScrollPane;
@@ -28,43 +27,19 @@ public class MainUI extends JFrame {
     private JPanel panel;
     private DefaultListModel<Client> clientListModel;
     private DefaultListModel<String> fileListModel;
-    private WindowCloseListener closeListener;
-    private ExecutorService pool = Executors.newCachedThreadPool();
-    private Socket socket;
-    private DataOutputStream out;
-    private DataInputStream in;
 
-    public MainUI(Socket socket,WindowCloseListener closeListener) throws IOException {
+    public MainUI(ServerConnection serverConnection, WindowCloseListener closeListener) throws IOException, ClassNotFoundException {
         this.closeListener = closeListener;
-        this.socket = socket;
-        out = new DataOutputStream(socket.getOutputStream());
-        in = new DataInputStream(socket.getInputStream());
-
+        this.serverConnection = serverConnection;
 
         System.out.println("GET FILE NAMES");
-        while (true) {
-            String fileName = in.readUTF();
-            if (fileName.equals("end")) {
-                break;
-            }
-            fileListModel.addElement(fileName);
-        }
+        serverConnection.getAvailableFiles().forEach(fileListModel::addElement);
 
         System.out.println("GETTING OTHER CLIENTS");
-        while (true) {
-
-            String name = in.readUTF();
-            if (name.equals("end")) {
-                break;
-            }
-
-            String ip = in.readUTF();
-            System.out.println("PORT UI");
-            int port = in.readInt();
-            System.out.println(port);
-            Client client = new Client(name, ip, port);
+        serverConnection.getKnownClients().forEach(info -> {
+            Client client = new Client(info.name(), info.ip(), info.port());
             clientListModel.addElement(client);
-        }
+        });
 
         setContentPane(panel);
         setTitle("File selector");
@@ -170,35 +145,29 @@ public class MainUI extends JFrame {
     private void download(File file) {
         ReceiveHandler handler;
         try {
-            out.writeUTF("download");
-            System.out.println("FILE NAME SENT");
-            out.writeUTF(file.getName());
-            String ip = in.readUTF();
-            System.out.println(ip);
-            int port = in.readInt();
-            System.out.println(port);
-            handler = new ReceiveHandler(ip, port, true, file);
-        } catch (IOException e) {
+            serverConnection.download(file.getName());
+//            handler = new ReceiveHandler(ip, port, true, file);
+        } catch (IOException | ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
-        pool.execute(handler);
+//        pool.execute(handler);
     }
 
     private void upload(File file) {
-        ReceiveHandler handler;
-        try {
-            out.writeUTF("upload");
-            System.out.println("FILE NAME SENT");
-            // out.writeUTF(file.getName()); HERE IF IT DOESNT WORK
-            String ip = in.readUTF();
-            System.out.println(ip);
-            int port = in.readInt();
-            System.out.println(port);
-            handler = new ReceiveHandler(ip, port, false, file);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        pool.execute(handler);
+//        ReceiveHandler handler;
+//        try {
+//            out.writeUTF("upload");
+//            System.out.println("FILE NAME SENT");
+//            // out.writeUTF(file.getName()); HERE IF IT DOESNT WORK
+//            String ip = in.readUTF();
+//            System.out.println(ip);
+//            int port = in.readInt();
+//            System.out.println(port);
+//            handler = new ReceiveHandler(ip, port, false, file);
+//        } catch (IOException e) {
+//            throw new RuntimeException(e);
+//        }
+//        pool.execute(handler);
     }
 
     private void filterFileList() {
