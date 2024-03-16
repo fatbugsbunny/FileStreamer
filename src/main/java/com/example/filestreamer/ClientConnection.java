@@ -8,7 +8,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 
-public class ClientConnection extends SocketConnection {
+public class ClientConnection extends SocketConnection implements Runnable {
     public ClientConnection(Socket socket) throws IOException {
         super(socket);
     }

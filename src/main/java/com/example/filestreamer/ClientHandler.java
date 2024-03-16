@@ -8,70 +8,42 @@
 //import java.util.concurrent.LinkedBlockingQueue;
 //
 //public class ClientHandler implements Runnable {
+//    private Socket clientSocket;
 //
-//    private HashMap<String, File> fileMap;
-//    private ExecutorService pool;
-//    private LinkedBlockingQueue<Client> clients;
-//    private Boolean serverConnection;
-//
-//    public ClientHandler(LinkedBlockingQueue<Client> clients, Boolean serverConnection) throws IOException {
-//        this.clients = clients;
-//        pool = Executors.newCachedThreadPool();
-//        this.serverConnection = serverConnection;
+//    public ClientHandler(Socket socket){
+//        this.clientSocket = socket;
 //    }
-//
 //    @Override
 //    public void run() {
 //        try {
-//            sendFileNamesToClient();
-//            if (serverConnection) {
-//                informAboutOtherClients();
-//            }
+//            var clientInput = new ObjectInputStream(clientSocket.getInputStream());
+//            var clientOutput = new ObjectOutputStream(clientSocket.getOutputStream());
 //            while (true) {
-//                SendHandler handler;
+//                switch ((Constants.ServerActions) clientInput.readObject()) {
+//                    case REQUEST_FILE_LIST -> {
+//                        System.out.println("REQUEST FILE LIST");
+//                        clientOutput.writeObject(new ArrayList(getFilesInFolder().keySet()));//Keyset is not serializable
+//                    }
+//                    case ADD_CLIENT -> {
+////                                ClientInfo info = (ClientInfo) clientInput.readObject();
+////                                Client client = new Client(info.name(), info.ip(), info.port());
+////                                System.out.println("PORT IN SERVER " + info.port());
+//                        clients.put((Client) clientInput.readObject());
+//                    }
+//                    case GET_KNOWN_CLIENTS -> {
+//                        clientOutput.writeObject(List.of(clients.toArray()));// List is serialiable for classes that support it not Client class for some reason
+//                    }
+//                    case DOWNLOAD -> {
 //
-//                System.out.println("FILE NAME RECEIVED");
-//                String whatToDo = in.readUTF();
-//
-//
-//                if (whatToDo.equals("download")) {
-//                    handler = new SendHandler(fileMap, true,serverConnection);
-//                } else {
-//                    handler = new SendHandler(fileMap, false,serverConnection);
+//                        FileManager.sendFile(new DataOutputStream(clientSocket.getOutputStream()), getFilesInFolder().get((String) clientInput.readObject()));
+//                    }
+//                    default -> {
+//                        throw new IllegalStateException("Unexpected value");
+//                    }
 //                }
-//                System.out.println("SEND HANDLER CREATED");
-//                pool.execute(handler);
-//                out.writeUTF(handler.getIpAddress());
-//                out.writeInt(handler.getPort());
-//                System.out.println("SEND HANDLER CREATED");
-//                System.out.println(handler.getIpAddress());
-//                System.out.println(handler.getPort());
 //            }
-//        } catch (IOException e) {
+//        } catch (IOException | ClassNotFoundException | InterruptedException e) {
 //            throw new RuntimeException(e);
-//        } finally {
-//            try {
-//                in.close();
-//                out.close();
-//            } catch (IOException e) {
-//                throw new RuntimeException(e);
-//            }
 //        }
-//    }
-//
-//    private void informAboutOtherClients() throws IOException {
-//        for (Client client : clients) {
-//            out.writeUTF(client.getName());
-//            out.writeUTF(client.getIpAddress());
-//            out.writeInt(client.getPort());
-//        }
-//        out.writeUTF("end");
-//    }
-//
-//    private void sendFileNamesToClient() throws IOException {
-//        for (Map.Entry<String, File> entry : fileMap.entrySet()) {
-//            out.writeUTF(entry.getKey());
-//        }
-//        out.writeUTF("end");
 //    }
 //}

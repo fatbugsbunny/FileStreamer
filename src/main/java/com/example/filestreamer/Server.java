@@ -1,11 +1,11 @@
 package com.example.filestreamer;
 
-import javax.swing.*;
-import java.io.*;
-import java.net.InetAddress;
+import java.io.File;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -15,11 +15,10 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 public class Server implements HasLocalFiles {
     private final ExecutorService pool = Executors.newCachedThreadPool();
-    private final LinkedBlockingQueue<Client> clients = new LinkedBlockingQueue<>();
-    private ServerSocket serverSocket;
+    private final LinkedBlockingQueue<ClientInfo> clients = new LinkedBlockingQueue<>();
 
-    public void start() throws IOException, InterruptedException, ClassNotFoundException {
-        serverSocket = new ServerSocket(1024);
+    public void start() throws IOException {
+        ServerSocket serverSocket = new ServerSocket(1024);
         while (true) {
             Socket clientSocket = serverSocket.accept();
 
@@ -35,16 +34,20 @@ public class Server implements HasLocalFiles {
                                 clientOutput.writeObject(new ArrayList(getFilesInFolder().keySet()));//Keyset is not serializable
                             }
                             case ADD_CLIENT -> {
-                                ClientInfo info = (ClientInfo) clientInput.readObject();
-                                Client client = new Client(info.name(), info.ip(), info.port());
-                                System.out.println("PORT IN SERVER " + info.port());
-                                clients.put(client);
+                                clients.put((ClientInfo) clientInput.readObject());
                             }
                             case GET_KNOWN_CLIENTS -> {
-                                clientOutput.writeObject(List.of(clients.toArray()));// List is serialiable for classes that support it not Client class for some reason
+                                clientOutput.writeObject(List.of(clients.toArray()));
                             }
                             case DOWNLOAD -> {
-                                FileManager.sendFile(new DataOutputStream(clientSocket.getOutputStream()), getFilesInFolder().get((String) clientInput.readObject()));
+                                SendHandler sendHandler = new SendHandler(getFilesInFolder(), true, true);
+                                pool.execute(sendHandler);
+                                clientOutput.writeObject(new HandlerInfo(sendHandler));
+                            }
+                            case UPLOAD -> {
+                                SendHandler sendHandler = new SendHandler(getFilesInFolder(), false, true);
+                                pool.execute(sendHandler);
+                                clientOutput.writeObject(new HandlerInfo(sendHandler));
                             }
                             default -> {
                                 throw new IllegalStateException("Unexpected value");
@@ -59,29 +62,9 @@ public class Server implements HasLocalFiles {
         }
     }
 
-    private String getIp() {
-        InetAddress localhost;
-        try {
-            localhost = InetAddress.getLocalHost();
-        } catch (UnknownHostException e) {
-            throw new RuntimeException(e);
-        }
-        return localhost.getHostAddress();
-    }
-
     public HashMap<String, File> getFilesInFolder() {
-        HashMap<String, File> map = new HashMap<>();
         File customDirectory = FilePaths.FILE_PATH_SERVER.path.toFile();
-        JFileChooser fileChooser = new JFileChooser(customDirectory);
-
-        File[] filesInDirectory = fileChooser.getCurrentDirectory().listFiles();
-        if (filesInDirectory == null) {
-            return new HashMap<>();
-        }
-
-        for (File file : filesInDirectory) {
-            map.put(file.getName(), file);
-        }
+        HashMap<String, File> map = getFilesInFolder(customDirectory);
         return map;
     }
 

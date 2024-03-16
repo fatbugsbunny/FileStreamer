@@ -7,6 +7,6 @@ public enum Constants {
         REQUEST_FILE_LIST,
         ADD_CLIENT,
         GET_KNOWN_CLIENTS,
-        DOWNLOAD
+        UPLOAD, DOWNLOAD
     }
 }

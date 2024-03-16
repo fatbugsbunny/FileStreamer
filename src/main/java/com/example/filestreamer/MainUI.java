@@ -5,16 +5,9 @@ import java.awt.event.*;
 import java.io.File;
 import java.io.IOException;
 import java.net.Socket;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
-public class MainUI extends JFrame {
-    private final WindowCloseListener closeListener;
-    private final ExecutorService pool = Executors.newCachedThreadPool();
-    private final ServerConnection serverConnection;
+public class MainUI extends JFrame implements IsUI {
     private JPanel panel1;
     private JTextField fileFilterField;
     private JScrollPane ScrollPane;
@@ -25,19 +18,15 @@ public class MainUI extends JFrame {
     private JList clientList;
     private JTextField clientFilterField;
     private JPanel panel;
-    private DefaultListModel<Client> clientListModel;
+    private DefaultListModel<ClientInfo> clientListModel;
     private DefaultListModel<String> fileListModel;
 
     public MainUI(ServerConnection serverConnection, WindowCloseListener closeListener) throws IOException, ClassNotFoundException {
-        this.closeListener = closeListener;
-        this.serverConnection = serverConnection;
-
         System.out.println("GET FILE NAMES");
         serverConnection.getAvailableFiles().forEach(fileListModel::addElement);
 
         System.out.println("GETTING OTHER CLIENTS");
-        serverConnection.getKnownClients().forEach(info -> {
-            Client client = new Client(info.name(), info.ip(), info.port());
+        serverConnection.getKnownClients().forEach(client -> {
             clientListModel.addElement(client);
         });
 
@@ -78,7 +67,6 @@ public class MainUI extends JFrame {
             @Override
             public void windowDeactivated(WindowEvent e) {
             }
-
         });
 
         download.addActionListener(e -> {
@@ -86,7 +74,7 @@ public class MainUI extends JFrame {
             String directory = getDirectory();
             for (String fileName : selectedFiles) {
                 File file = new File(directory + fileName);
-                download(file);
+                download(serverConnection, file);
             }
         });
 
@@ -97,21 +85,21 @@ public class MainUI extends JFrame {
             }
 
             for (File file : filesToSend) {
-                upload(file);
+                upload(serverConnection, file);
             }
         });
 
         fileFilterField.addKeyListener(new KeyAdapter() {
             @Override
             public void keyTyped(KeyEvent e) {
-                filterFileList();
+                filter(fileFilterField, fileListModel, fileList);
             }
         });
 
         clientFilterField.addKeyListener(new KeyAdapter() {
             @Override
             public void keyTyped(KeyEvent e) {
-                filterClientList();
+                filter(clientFilterField, clientListModel, clientList);
             }
         });
         clientList.addMouseListener(new MouseAdapter() {
@@ -120,11 +108,12 @@ public class MainUI extends JFrame {
                 if (e.getClickCount() == 2) {
                     int index = clientList.locationToIndex(e.getPoint());
                     if (index >= 0) {
-                        Client selectedClient = clientListModel.getElementAt(index);
+                        ClientInfo selectedClient = clientListModel.getElementAt(index);
                         try {
-                            Socket client = new Socket(selectedClient.getIpAddress(), selectedClient.getPort());
-                            new FileTransferUI(client, selectedClient.getName());
-                        } catch (IOException j) {
+                            Socket client = new Socket(selectedClient.ip(), selectedClient.port());
+                            ServerConnection connection = new ServerConnection(client);
+                            new FileTransferUI(connection, selectedClient.name());
+                        } catch (IOException | ClassNotFoundException j) {
                             j.printStackTrace();
                         }
                     }
@@ -138,89 +127,7 @@ public class MainUI extends JFrame {
         fileListModel = new DefaultListModel<>();
 
         clientList = new JList<>(clientListModel);
-
         fileList = new JList<>(fileListModel);
     }
 
-    private void download(File file) {
-        ReceiveHandler handler;
-        try {
-            serverConnection.download(file.getName());
-//            handler = new ReceiveHandler(ip, port, true, file);
-        } catch (IOException | ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
-//        pool.execute(handler);
-    }
-
-    private void upload(File file) {
-//        ReceiveHandler handler;
-//        try {
-//            out.writeUTF("upload");
-//            System.out.println("FILE NAME SENT");
-//            // out.writeUTF(file.getName()); HERE IF IT DOESNT WORK
-//            String ip = in.readUTF();
-//            System.out.println(ip);
-//            int port = in.readInt();
-//            System.out.println(port);
-//            handler = new ReceiveHandler(ip, port, false, file);
-//        } catch (IOException e) {
-//            throw new RuntimeException(e);
-//        }
-//        pool.execute(handler);
-    }
-
-    private void filterFileList() {
-        filter(fileFilterField, fileListModel, fileList);
-    }
-
-    private void filterClientList() {
-        filterClient(clientFilterField, clientListModel, clientList);
-    }
-
-    private void filter(JTextField fileFilterField, DefaultListModel<String> fileListModel, JList<String> fileList) {
-        String filterText = fileFilterField.getText().toLowerCase();
-        DefaultListModel<String> filteredModel = new DefaultListModel<>();
-        for (int i = 0; i < fileListModel.size(); i++) {
-            String item = fileListModel.getElementAt(i);
-            if (item.toLowerCase().contains(filterText)) {
-                filteredModel.addElement(item);
-            }
-        }
-        fileList.setModel(filteredModel);
-    }
-
-    private void filterClient(JTextField fileFilterField, DefaultListModel<Client> fileListModel, JList<Client> clientList) {
-        String filterText = fileFilterField.getText().toLowerCase();
-        DefaultListModel<Client> filteredModel = new DefaultListModel<>();
-        for (int i = 0; i < fileListModel.size(); i++) {
-            Client client = fileListModel.getElementAt(i);
-            if (client.getName().toLowerCase().contains(filterText)) {
-                filteredModel.addElement(client);
-            }
-        }
-        clientList.setModel(filteredModel);
-    }
-
-    private String getDirectory() {
-        JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Select a Directory");
-        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-        int returnVal = chooser.showOpenDialog(null);
-        if (returnVal == JFileChooser.APPROVE_OPTION) {
-            return chooser.getSelectedFile().getAbsolutePath() + File.separator;
-        }
-        return "";
-    }
-
-    private List<File> getFilesToSend() {
-        JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Choose your files");
-        chooser.setMultiSelectionEnabled(true);
-        int returnVal = chooser.showOpenDialog(null);
-        if (returnVal == JFileChooser.APPROVE_OPTION) {
-            return Arrays.asList(chooser.getSelectedFiles());
-        }
-        return Collections.emptyList();
-    }
 }

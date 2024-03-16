@@ -8,7 +8,8 @@ import java.util.Set;
 
 import static com.example.filestreamer.Constants.STREAM_END;
 
-public abstract class SocketConnection implements Runnable {
+public abstract class SocketConnection {
+
     protected final Socket socket;
     protected final ObjectInputStream in;
     protected final ObjectOutputStream out;

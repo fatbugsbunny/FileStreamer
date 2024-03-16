@@ -1,13 +1,18 @@
 package com.example.filestreamer;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class ServerConnection extends SocketConnection {
+    private final ExecutorService pool = Executors.newCachedThreadPool();
+
     public ServerConnection(Socket socket) throws IOException {
         super(socket);
     }
@@ -17,51 +22,23 @@ public class ServerConnection extends SocketConnection {
         return new HashSet<>((ArrayList<String>) in.readObject());
     }
 
-    public void download(String filename) throws IOException, ClassNotFoundException {
+    public void download(File file) throws IOException, ClassNotFoundException {
         out.writeObject(Constants.ServerActions.DOWNLOAD);
-        out.writeObject(filename);
+        HandlerInfo info = ((HandlerInfo) in.readObject());
+        ReceiveHandler receiveHandler = new ReceiveHandler(info.ip(), info.port(), true, file);
+        pool.execute(receiveHandler);
     }
 
-    @Override
-    public void run() {
-//        try {
-//            sendFileNames();
-//            informAboutOtherClients();
-//            while (true) {
-//                SendHandler handler;
-//
-//                System.out.println("FILE NAME RECEIVED");
-//                String whatToDo = in.readUTF();
-//
-//
-//                if (whatToDo.equals("download")) {
-//                    handler = new SendHandler(getAvailableFiles(), true, true);
-//                } else {
-//                    handler = new SendHandler(getAvailableFiles(), false, true);
-//                }
-//                System.out.println("SEND HANDLER CREATED");
-//                pool.execute(handler);
-//                out.writeUTF(handler.getIpAddress());
-//                out.writeInt(handler.getPort());
-//                System.out.println("SEND HANDLER CREATED");
-//                System.out.println(handler.getIpAddress());
-//                System.out.println(handler.getPort());
-//            }
-//        } catch (IOException | ClassNotFoundException e) {
-//            throw new RuntimeException(e);
-//        } finally {
-//            try {
-//                in.close();
-//                out.close();
-//            } catch (IOException e) {
-//                throw new RuntimeException(e);
-//            }
-//        }
+    public void upload(File file) throws IOException, ClassNotFoundException {
+        out.writeObject(Constants.ServerActions.UPLOAD);
+        HandlerInfo info = ((HandlerInfo) in.readObject());
+        ReceiveHandler receiveHandler = new ReceiveHandler(info.ip(), info.port(), false, file);
+        pool.execute(receiveHandler);
     }
 
-    public void addClient(ClientInfo clientInfo) throws IOException {
+    public void addClient(ClientInfo client) throws IOException {
         out.writeObject(Constants.ServerActions.ADD_CLIENT);
-        out.writeObject(clientInfo);
+        out.writeObject(client);
 //        out.writeObject(STREAM_END);
     }
 

@@ -4,11 +4,12 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ClientTest {
     @Test
-    void clientAwaitsConnections(){
+    void clientAwaitsConnections() {
         Client client = new Client("ann");
         assertThrows(IOException.class, client::run);
     }
@@ -22,11 +23,11 @@ class ClientTest {
     }
 
     @Test
-    void clientCanConnectToClient() throws IOException{
+    void clientCanConnectToClient() throws IOException, InterruptedException, ClassNotFoundException {
         Client jake = new Client("Jake");
         Client paul = new Client("Paul");
 
         jake.run();
-        paul.connect(jake.getIpAddress(),jake.getPort());
+        paul.connect(jake.getIpAddress(), jake.getPort());
     }
 }

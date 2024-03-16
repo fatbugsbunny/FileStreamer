@@ -7,10 +7,10 @@ import java.io.IOException;
 import java.net.Socket;
 
 public class ReceiveHandler implements Runnable {
-    private File file;
-    private boolean whatTodo;
-    private int port;
-    private String ip;
+    private final File file;
+    private final boolean whatTodo;
+    private final int port;
+    private final String ip;
 
     public ReceiveHandler(String ip, int port, Boolean whatToDo, File file) throws IOException {
         this.whatTodo = whatToDo;
@@ -30,11 +30,9 @@ public class ReceiveHandler implements Runnable {
             out.writeUTF(file.getName());
             if (whatTodo) {
                 System.out.println("FILE HANDLER");
-                System.out.println(file.getName());
                 FileManager.receiveFile(in, file);
             } else {
                 System.out.println("FILE HANDLER");
-                System.out.println(file.getName());
                 FileManager.sendFile(out, file);
             }
         } catch (IOException e) {

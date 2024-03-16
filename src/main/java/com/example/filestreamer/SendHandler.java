@@ -1,16 +1,13 @@
 package com.example.filestreamer;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.HashMap;
 
-public class SendHandler implements Runnable {
+public class SendHandler implements Runnable, Serializable {
     private final boolean whatTodo;
     private final boolean serverConnection;
     private final ServerSocket serverSocket = new ServerSocket(0);
@@ -37,18 +34,22 @@ public class SendHandler implements Runnable {
             if (whatTodo) {
                 FileManager.sendFile(out, fileMap.get(name));
             } else {
-                //create new file in location so it can be read
-                File file;
-                if (serverConnection) {
-                    file = new File(FilePaths.FILE_PATH_SERVER.path.toString() + File.separator + name);
-                } else {
-                    file = new File(FilePaths.FILE_PATH_CLIENT.path.toString() + File.separator + name);
-                }
+                File file = createEmptyFile(name);
                 FileManager.receiveFile(in, file);
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private File createEmptyFile(String name) {
+        File file;
+        if (serverConnection) {
+            file = new File(FilePaths.FILE_PATH_SERVER.path.toString() + File.separator + name);
+        } else {
+            file = new File(FilePaths.FILE_PATH_CLIENT.path.toString() + File.separator + name);
+        }
+        return file;
     }
 
     public int getPort() {

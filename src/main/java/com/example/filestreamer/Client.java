@@ -1,42 +1,33 @@
 package com.example.filestreamer;
 
-import javax.swing.*;
 import java.io.File;
 import java.io.IOException;
-import java.io.Serializable;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 
-public class Client implements Runnable, WindowCloseListener, HasLocalFiles, Serializable {
-    transient final ExecutorService clientPool = Executors.newCachedThreadPool();
-    transient final CountDownLatch countDownLatch = new CountDownLatch(1);
-    private final LinkedBlockingQueue<Client> knownClients;
+public class Client implements Runnable, WindowCloseListener, HasLocalFiles {
+    private final ExecutorService pool = Executors.newCachedThreadPool();
+    private final CountDownLatch countDownLatch = new CountDownLatch(1);
+    private final LinkedBlockingQueue<ClientInfo> knownClients;
     private final String name;
-    private String ipAddress;
+    private final String ipAddress;
     private int port;
 
     public Client(String name) {
         ipAddress = getIp();
         this.name = name;
         knownClients = new LinkedBlockingQueue<>();
-    }
-
-    public Client(String name, String ip) {
-        this(name);
-        ipAddress = ip;
-    }
-
-    public Client(String name, String ip, int port) {
-        this(name, ip);
-        this.port = port;
     }
 
     @Override
@@ -47,51 +38,71 @@ public class Client implements Runnable, WindowCloseListener, HasLocalFiles, Ser
             port = openSocket.getLocalPort();
             System.out.println(port);
             countDownLatch.countDown();
-
-            Socket clientSocket = openSocket.accept();
             while (true) {
-                HashMap<String, File> files = getFilesInFolder();
-                //Overload the constructor isntead
-                ServerConnection clientHandler = new ServerConnection(clientSocket);
-                clientPool.execute(clientHandler);
+                Socket clientSocket = openSocket.accept();
+                pool.execute(() -> {
+                    try {
+                        var clientInput = new ObjectInputStream(clientSocket.getInputStream());
+                        var clientOutput = new ObjectOutputStream(clientSocket.getOutputStream());
+                        while (true) {
+                            switch ((Constants.ServerActions) clientInput.readObject()) {
+                                case REQUEST_FILE_LIST -> {
+                                    System.out.println("REQUEST FILE LIST");
+                                    clientOutput.writeObject(new ArrayList(getFilesInFolder().keySet()));//Keyset is not serializable
+                                }
+                                case ADD_CLIENT -> {
+                                    knownClients.put((ClientInfo) clientInput.readObject());
+                                }
+                                case GET_KNOWN_CLIENTS -> {
+                                    clientOutput.writeObject(List.of(knownClients.toArray()));
+                                }
+                                case DOWNLOAD -> {
+                                    SendHandler sendHandler = new SendHandler(getFilesInFolder(), true, false);
+                                    pool.execute(sendHandler);
+                                    clientOutput.writeObject(new HandlerInfo(sendHandler));
+                                }
+                                case UPLOAD -> {
+                                    SendHandler sendHandler = new SendHandler(getFilesInFolder(), false, false);
+                                    pool.execute(sendHandler);
+                                    clientOutput.writeObject(new HandlerInfo(sendHandler));
+                                }
+                                default -> {
+                                    throw new IllegalStateException("Unexpected value");
+                                }
+                            }
+                        }
+                    } catch (IOException | ClassNotFoundException | InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+
+                });
             }
         } catch (IOException e) {
-            System.out.println("IOException caught");
             e.printStackTrace();
         }
     }
 
     public void shutDown() {
-        clientPool.shutdown();
+        pool.shutdown();
     }
 
     public void connect(String ip, int port) throws IOException, InterruptedException, ClassNotFoundException {
-        clientPool.execute(this);
+        pool.execute(this);
         countDownLatch.await();
         Socket serverSocket = new Socket(ip, port);
         ServerConnection serverConnection = new ServerConnection(serverSocket);
 
-        serverConnection.addClient(new ClientInfo(name, ip, port));
+        serverConnection.addClient(new ClientInfo(this));
         System.out.println(this.port);
 
         new MainUI(serverConnection, this);
     }
 
     public HashMap<String, File> getFilesInFolder() {
-        HashMap<String, File> map = new HashMap<>();
         File customDirectory = FilePaths.FILE_PATH_CLIENT.path.toFile();
-        JFileChooser fileChooser = new JFileChooser(customDirectory);
-
-        File[] filesInDirectory = fileChooser.getCurrentDirectory().listFiles();
-        if (filesInDirectory == null) {
-            return new HashMap<>();
-        }
-        for (File file : filesInDirectory) {
-            map.put(file.getName(), file);
-        }
+        HashMap<String, File> map = getFilesInFolder(customDirectory);
         return map;
     }
-
 
     private String getIp() {
         InetAddress localhost;
@@ -111,20 +122,8 @@ public class Client implements Runnable, WindowCloseListener, HasLocalFiles, Ser
         return port;
     }
 
-    public LinkedBlockingQueue<Client> getKnownClients() {
+    public LinkedBlockingQueue<ClientInfo> getKnownClients() {
         return knownClients;
-    }
-
-    public ArrayList<Client> getOtherClients(ArrayList<Client> clients) {
-
-        for (Client client : clients) {
-            for (Client knownClients : knownClients) {
-                if (!(client.getIp().equals(knownClients.getIp()))) {
-                    clients.add(knownClients);
-                }
-            }
-        }
-        return clients;
     }
 
     public String getName() {

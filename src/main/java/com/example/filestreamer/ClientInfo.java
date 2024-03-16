@@ -6,5 +6,10 @@ public record ClientInfo(String name, String ip, int port) implements Serializab
     public ClientInfo(Client client) {
         this(client.getName(), client.getIpAddress(), client.getPort());
     }
+
+    @Override
+    public String toString() {
+        return name;
+    }
 }
 
