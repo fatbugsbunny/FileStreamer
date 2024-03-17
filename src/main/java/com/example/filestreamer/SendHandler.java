@@ -1,13 +1,16 @@
 package com.example.filestreamer;
 
-import java.io.*;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.HashMap;
 
-public class SendHandler implements Runnable, Serializable {
+public class SendHandler implements Runnable {
     private final boolean whatTodo;
     private final boolean serverConnection;
     private final ServerSocket serverSocket = new ServerSocket(0);

@@ -48,11 +48,11 @@ public interface IsUI {
 
     default void filter(JTextField fileFilterField, DefaultListModel fileListModel, JList<String> fileList) {
         String filterText = fileFilterField.getText().toLowerCase();
-        DefaultListModel filteredModel = new DefaultListModel<>();
+        DefaultListModel<String> filteredModel = new DefaultListModel<>();
         for (int i = 0; i < fileListModel.size(); i++) {
             Object object = fileListModel.getElementAt(i);
             if (object.toString().toLowerCase().contains(filterText)) {
-                filteredModel.addElement(object);
+                filteredModel.addElement(object.toString());
             }
         }
         fileList.setModel(filteredModel);

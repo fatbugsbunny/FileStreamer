@@ -4,17 +4,18 @@ import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.*;
 
 public class Server implements HasLocalFiles {
     private final ExecutorService pool = Executors.newCachedThreadPool();
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(0);
+
     private final LinkedBlockingQueue<ClientInfo> clients = new LinkedBlockingQueue<>();
 
     public void start() throws IOException {
@@ -23,22 +24,34 @@ public class Server implements HasLocalFiles {
             Socket clientSocket = serverSocket.accept();
 
             pool.execute(() -> {
-                System.out.println("bbb");
+
                 try {
                     var clientInput = new ObjectInputStream(clientSocket.getInputStream());
                     var clientOutput = new ObjectOutputStream(clientSocket.getOutputStream());
                     while (true) {
                         switch ((Constants.ServerActions) clientInput.readObject()) {
-                            case REQUEST_FILE_LIST -> {
-                                System.out.println("REQUEST FILE LIST");
-                                clientOutput.writeObject(new ArrayList(getFilesInFolder().keySet()));//Keyset is not serializable
-                            }
+                            case REQUEST_FILE_LIST ->
+                                    clientOutput.writeObject(new ArrayList(getFilesInFolder().keySet()));//Key set is not serializable
+
                             case ADD_CLIENT -> {
-                                clients.put((ClientInfo) clientInput.readObject());
+                                ClientInfo clientInfo = (ClientInfo) clientInput.readObject();
+                                clients.put(clientInfo);
+                                scheduler.scheduleAtFixedRate(() -> {
+                                    try {
+                                        Socket socket = new Socket();
+                                        socket.connect(new InetSocketAddress(clientInfo.ip(), clientInfo.port()), 1000); // Timeout set to 1 second
+                                        System.out.println("Server socket is still accepting connections.");
+                                        socket.close();
+                                    } catch (IOException e) {
+                                        System.out.println("Removed " + clients.remove(clientInfo));
+                                        System.err.println("Error: " + e.getMessage());
+                                        throw new RuntimeException();
+                                    }
+                                }, 0, 5, TimeUnit.SECONDS);
                             }
-                            case GET_KNOWN_CLIENTS -> {
-                                clientOutput.writeObject(List.of(clients.toArray()));
-                            }
+
+                            case GET_KNOWN_CLIENTS -> clientOutput.writeObject(List.of(clients.toArray()));
+
                             case DOWNLOAD -> {
                                 SendHandler sendHandler = new SendHandler(getFilesInFolder(), true, true);
                                 pool.execute(sendHandler);
@@ -49,9 +62,7 @@ public class Server implements HasLocalFiles {
                                 pool.execute(sendHandler);
                                 clientOutput.writeObject(new HandlerInfo(sendHandler));
                             }
-                            default -> {
-                                throw new IllegalStateException("Unexpected value");
-                            }
+                            default -> throw new IllegalStateException("Unexpected value");
                         }
                     }
                 } catch (IOException | ClassNotFoundException | InterruptedException e) {
@@ -59,13 +70,13 @@ public class Server implements HasLocalFiles {
                 }
 
             });
+
         }
     }
 
     public HashMap<String, File> getFilesInFolder() {
         File customDirectory = FilePaths.FILE_PATH_SERVER.path.toFile();
-        HashMap<String, File> map = getFilesInFolder(customDirectory);
-        return map;
+        return getFilesInFolder(customDirectory);
     }
 
 }

@@ -4,20 +4,15 @@ import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.net.InetAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.UnknownHostException;
+import java.net.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.*;
 
 public class Client implements Runnable, WindowCloseListener, HasLocalFiles {
     private final ExecutorService pool = Executors.newCachedThreadPool();
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(0);
     private final CountDownLatch countDownLatch = new CountDownLatch(1);
     private final LinkedBlockingQueue<ClientInfo> knownClients;
     private final String name;
@@ -41,34 +36,36 @@ public class Client implements Runnable, WindowCloseListener, HasLocalFiles {
             while (true) {
                 Socket clientSocket = openSocket.accept();
                 pool.execute(() -> {
+                    System.out.println("Thread started --client--");
                     try {
                         var clientInput = new ObjectInputStream(clientSocket.getInputStream());
                         var clientOutput = new ObjectOutputStream(clientSocket.getOutputStream());
                         while (true) {
                             switch ((Constants.ServerActions) clientInput.readObject()) {
-                                case REQUEST_FILE_LIST -> {
-                                    System.out.println("REQUEST FILE LIST");
-                                    clientOutput.writeObject(new ArrayList(getFilesInFolder().keySet()));//Keyset is not serializable
-                                }
+                                case REQUEST_FILE_LIST ->
+                                        clientOutput.writeObject(new ArrayList(getFilesInFolder().keySet()));//Key set is not serializable
+
                                 case ADD_CLIENT -> {
-                                    knownClients.put((ClientInfo) clientInput.readObject());
+                                    ClientInfo clientInfo = (ClientInfo) clientInput.readObject();
+                                    knownClients.put(clientInfo);
+                                    removeWhenOffline(clientInfo);
                                 }
-                                case GET_KNOWN_CLIENTS -> {
-                                    clientOutput.writeObject(List.of(knownClients.toArray()));
-                                }
+
+                                case GET_KNOWN_CLIENTS -> clientOutput.writeObject(List.of(knownClients.toArray()));
+
                                 case DOWNLOAD -> {
                                     SendHandler sendHandler = new SendHandler(getFilesInFolder(), true, false);
                                     pool.execute(sendHandler);
                                     clientOutput.writeObject(new HandlerInfo(sendHandler));
                                 }
+
                                 case UPLOAD -> {
                                     SendHandler sendHandler = new SendHandler(getFilesInFolder(), false, false);
                                     pool.execute(sendHandler);
                                     clientOutput.writeObject(new HandlerInfo(sendHandler));
                                 }
-                                default -> {
-                                    throw new IllegalStateException("Unexpected value");
-                                }
+
+                                default -> throw new IllegalStateException("Unexpected value");
                             }
                         }
                     } catch (IOException | ClassNotFoundException | InterruptedException e) {
@@ -86,6 +83,21 @@ public class Client implements Runnable, WindowCloseListener, HasLocalFiles {
         pool.shutdown();
     }
 
+    private void removeWhenOffline(ClientInfo clientInfo) {
+        scheduler.scheduleAtFixedRate(() -> {
+            try {
+                Socket socket = new Socket();
+                socket.connect(new InetSocketAddress(clientInfo.ip(), clientInfo.port()), 1000); // Timeout set to 1 second
+                System.out.println("Server socket is still accepting connections.");
+                socket.close();
+            } catch (IOException e) {
+                System.out.println("Removed " + knownClients.remove(clientInfo));
+                System.err.println("Error: " + e.getMessage());
+                throw new RuntimeException();
+            }
+        }, 0, 5, TimeUnit.SECONDS);
+    }
+
     public void connect(String ip, int port) throws IOException, InterruptedException, ClassNotFoundException {
         pool.execute(this);
         countDownLatch.await();
@@ -100,8 +112,7 @@ public class Client implements Runnable, WindowCloseListener, HasLocalFiles {
 
     public HashMap<String, File> getFilesInFolder() {
         File customDirectory = FilePaths.FILE_PATH_CLIENT.path.toFile();
-        HashMap<String, File> map = getFilesInFolder(customDirectory);
-        return map;
+        return getFilesInFolder(customDirectory);
     }
 
     private String getIp() {
@@ -120,10 +131,6 @@ public class Client implements Runnable, WindowCloseListener, HasLocalFiles {
 
     public int getPort() {
         return port;
-    }
-
-    public LinkedBlockingQueue<ClientInfo> getKnownClients() {
-        return knownClients;
     }
 
     public String getName() {

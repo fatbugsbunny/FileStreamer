@@ -39,7 +39,6 @@ public class ServerConnection extends SocketConnection {
     public void addClient(ClientInfo client) throws IOException {
         out.writeObject(Constants.ServerActions.ADD_CLIENT);
         out.writeObject(client);
-//        out.writeObject(STREAM_END);
     }
 
     public List<ClientInfo> getKnownClients() throws IOException, ClassNotFoundException {

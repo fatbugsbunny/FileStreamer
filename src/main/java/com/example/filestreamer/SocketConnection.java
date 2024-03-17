@@ -6,7 +6,6 @@ import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.Set;
 
-import static com.example.filestreamer.Constants.STREAM_END;
 
 public abstract class SocketConnection {
 
@@ -26,6 +25,5 @@ public abstract class SocketConnection {
 
     protected void sendFileNames() throws IOException, ClassNotFoundException {
         out.writeObject(getAvailableFiles());
-        out.writeObject(STREAM_END);
     }
 }

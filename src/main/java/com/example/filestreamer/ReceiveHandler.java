@@ -12,7 +12,7 @@ public class ReceiveHandler implements Runnable {
     private final int port;
     private final String ip;
 
-    public ReceiveHandler(String ip, int port, Boolean whatToDo, File file) throws IOException {
+    public ReceiveHandler(String ip, int port, Boolean whatToDo, File file) {
         this.whatTodo = whatToDo;
         this.file = file;
         this.port = port;
