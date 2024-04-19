@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<form xmlns="http://www.intellij.com/uidesigner/form/" version="1" bind-to-class="com.example.filestreamer.ClientToClientUI">
+  <grid id="27dc6" binding="panel1" default-binding="true" layout-manager="GridLayoutManager" row-count="6" column-count="4" same-size-horizontally="false" same-size-vertically="false" hgap="-1" vgap="-1">
+    <margin top="2" left="2" bottom="2" right="2"/>
+    <constraints>
+      <xy x="20" y="20" width="644" height="466"/>
+    </constraints>
+    <properties>
+      <background color="-2697514"/>
+      <enabled value="true"/>
+      <foreground color="-1"/>
+      <name value="panel"/>
+    </properties>
+    <border type="none"/>
+    <children>
+      <component id="72d6a" class="javax.swing.JTextField" binding="filterField">
+        <constraints>
+          <grid row="1" column="0" row-span="1" col-span="2" vsize-policy="6" hsize-policy="6" anchor="8" fill="1" indent="0" use-parent-layout="false">
+            <preferred-size width="150" height="-1"/>
+          </grid>
+        </constraints>
+        <properties>
+          <caretColor color="-10322227"/>
+          <foreground color="-15984568"/>
+        </properties>
+      </component>
+      <scrollpane id="11df9" binding="ScrollPane">
+        <constraints>
+          <grid row="2" column="0" row-span="2" col-span="2" vsize-policy="7" hsize-policy="7" anchor="0" fill="3" indent="0" use-parent-layout="false"/>
+        </constraints>
+        <properties>
+          <foreground color="-1"/>
+        </properties>
+        <border type="none"/>
+        <children>
+          <component id="b5c58" class="javax.swing.JList" binding="list" custom-create="true">
+            <constraints/>
+            <properties>
+              <background color="-10322227"/>
+              <enabled value="true"/>
+              <foreground color="-1"/>
+              <selectionBackground color="-6706689"/>
+            </properties>
+          </component>
+        </children>
+      </scrollpane>
+      <component id="24165" class="javax.swing.JLabel" binding="clientName">
+        <constraints>
+          <grid row="0" column="0" row-span="1" col-span="2" vsize-policy="6" hsize-policy="6" anchor="0" fill="0" indent="0" use-parent-layout="false"/>
+        </constraints>
+        <properties>
+          <background color="-6774559"/>
+          <doubleBuffered value="true"/>
+          <foreground color="-15984568"/>
+          <text value="Name"/>
+        </properties>
+      </component>
+      <component id="a378f" class="javax.swing.JButton" binding="download">
+        <constraints>
+          <grid row="4" column="0" row-span="1" col-span="2" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+        </constraints>
+        <properties>
+          <background color="-6774559"/>
+          <foreground color="-1"/>
+          <text value="Download"/>
+        </properties>
+      </component>
+      <component id="35072" class="javax.swing.JButton" binding="upload">
+        <constraints>
+          <grid row="5" column="0" row-span="1" col-span="2" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+        </constraints>
+        <properties>
+          <background color="-6774559"/>
+          <foreground color="-1"/>
+          <margin top="1" left="5" bottom="1" right="1"/>
+          <text value="Choose a file to send"/>
+        </properties>
+      </component>
+      <component id="dd6ec" class="javax.swing.JTextArea" binding="chatArea">
+        <constraints>
+          <grid row="0" column="2" row-span="5" col-span="2" vsize-policy="6" hsize-policy="6" anchor="0" fill="3" indent="0" use-parent-layout="false">
+            <preferred-size width="150" height="50"/>
+          </grid>
+        </constraints>
+        <properties/>
+      </component>
+      <component id="e698a" class="javax.swing.JTextField" binding="message">
+        <constraints>
+          <grid row="5" column="2" row-span="1" col-span="1" vsize-policy="0" hsize-policy="6" anchor="8" fill="1" indent="0" use-parent-layout="false">
+            <preferred-size width="150" height="-1"/>
+          </grid>
+        </constraints>
+        <properties/>
+      </component>
+      <component id="ce4a8" class="javax.swing.JButton" binding="sendButton">
+        <constraints>
+          <grid row="5" column="3" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="0" fill="1" indent="0" use-parent-layout="false"/>
+        </constraints>
+        <properties>
+          <text value="Button"/>
+        </properties>
+      </component>
+    </children>
+  </grid>
+</form>

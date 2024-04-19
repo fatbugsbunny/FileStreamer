@@ -8,17 +8,17 @@ import java.util.Collections;
 import java.util.List;
 
 public interface IsUI {
-    default void download(ServerConnection serverConnection, File file) {
+    default void download(SocketConnection socketConnection, File file) {
         try {
-            serverConnection.download(file);
+            socketConnection.download(file);
         } catch (IOException | ClassNotFoundException e) {
             throw new RuntimeException(e);
         }
     }
 
-    default void upload(ServerConnection serverConnection, File file) {
+    default void upload(SocketConnection socketConnection, File file) {
         try {
-            serverConnection.upload(file);
+            socketConnection.upload(file);
         } catch (IOException | ClassNotFoundException e) {
             throw new RuntimeException(e);
         }

@@ -1,14 +1,15 @@
 package com.example.filestreamer;
 
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.io.*;
 import java.net.Socket;
+import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 
 public abstract class SocketConnection {
-
+    protected final ExecutorService pool = Executors.newCachedThreadPool();
     protected final Socket socket;
     protected final ObjectInputStream in;
     protected final ObjectOutputStream out;
@@ -19,6 +20,36 @@ public abstract class SocketConnection {
         System.out.println("ccc");
         in = new ObjectInputStream(socket.getInputStream());
         System.out.println("ddd");
+    }
+
+    public void download(File file) throws IOException, ClassNotFoundException {
+        try {
+            out.writeObject(Constants.ServerActions.DOWNLOAD);
+            System.out.println("WRITTEN DOWNLOAD");
+            SocketInfo info = ((SocketInfo) in.readObject());
+            System.out.println("GOT HANDLER INFo");
+            ReceiveHandler receiveHandler = new ReceiveHandler(info.ip(), info.port(), true, file);
+            pool.execute(receiveHandler);
+        } catch (OptionalDataException e) {
+            System.out.println(e.eof + "   " + e.length);
+        }
+    }
+
+    public void upload(File file) throws IOException, ClassNotFoundException {
+        out.writeObject(Constants.ServerActions.UPLOAD);
+        SocketInfo info = ((SocketInfo) in.readObject());
+        ReceiveHandler receiveHandler = new ReceiveHandler(info.ip(), info.port(), false, file);
+        pool.execute(receiveHandler);
+    }
+
+    public void addClient(ClientInfo client) throws IOException {
+        out.writeObject(Constants.ServerActions.ADD_CLIENT);
+        out.writeObject(client);
+    }
+
+    public List<ClientInfo> getKnownClients() throws IOException, ClassNotFoundException {
+        out.writeObject(Constants.ServerActions.GET_KNOWN_CLIENTS);
+        return (List<ClientInfo>) in.readObject();
     }
 
     abstract Set<String> getAvailableFiles() throws IOException, ClassNotFoundException;

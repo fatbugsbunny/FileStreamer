@@ -1,20 +1,30 @@
 package com.example.filestreamer;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ServerConnection extends SocketConnection {
+    private final String name;
     private final ExecutorService pool = Executors.newCachedThreadPool();
 
-    public ServerConnection(Socket socket) throws IOException {
+    public ServerConnection(Socket socket, String name) throws IOException {
         super(socket);
+        this.name = name;
+    }
+
+    public HashMap<String, SocketInfo> getChatConnections(String name) throws IOException, ClassNotFoundException {
+        out.writeObject(Constants.ServerActions.GET_CHAT_CONNECTIONS);
+        System.out.println("NAME");
+        out.writeUTF(name);
+        out.flush();
+        System.out.println("WRITTEN NAME");
+
+        HashMap<String, SocketInfo> map = (HashMap<String, SocketInfo>) in.readObject();
+        System.out.println("MAPS MAPS" + map);
+        return map;
     }
 
     public Set<String> getAvailableFiles() throws IOException, ClassNotFoundException {
@@ -22,27 +32,23 @@ public class ServerConnection extends SocketConnection {
         return new HashSet<>((ArrayList<String>) in.readObject());
     }
 
-    public void download(File file) throws IOException, ClassNotFoundException {
-        out.writeObject(Constants.ServerActions.DOWNLOAD);
-        HandlerInfo info = ((HandlerInfo) in.readObject());
-        ReceiveHandler receiveHandler = new ReceiveHandler(info.ip(), info.port(), true, file);
-        pool.execute(receiveHandler);
+    public String getName() {
+        return name;
     }
 
-    public void upload(File file) throws IOException, ClassNotFoundException {
-        out.writeObject(Constants.ServerActions.UPLOAD);
-        HandlerInfo info = ((HandlerInfo) in.readObject());
-        ReceiveHandler receiveHandler = new ReceiveHandler(info.ip(), info.port(), false, file);
-        pool.execute(receiveHandler);
+    public List<ClientInfo> getClientsClients(String name) throws IOException, ClassNotFoundException {
+        out.writeObject(Constants.ServerActions.GET_CLIENTS_CLIENTS);
+        out.writeUTF(name);
+        out.flush();
+        List list = (List) in.readObject();
+        System.out.println("FOUND");
+        System.out.println(list);
+        return list;
     }
 
-    public void addClient(ClientInfo client) throws IOException {
-        out.writeObject(Constants.ServerActions.ADD_CLIENT);
-        out.writeObject(client);
-    }
-
-    public List<ClientInfo> getKnownClients() throws IOException, ClassNotFoundException {
-        out.writeObject(Constants.ServerActions.GET_KNOWN_CLIENTS);
-        return (List<ClientInfo>) in.readObject();
+    public void close() throws IOException {
+        out.writeObject(Constants.ServerActions.CLOSE);
+        out.close();
+        in.close();
     }
 }

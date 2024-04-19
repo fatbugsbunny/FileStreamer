@@ -1,11 +1,14 @@
 package com.example.filestreamer;
 
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Objects;
 
-public record ClientInfo(String name, String ip, int port) implements Serializable {
+public record ClientInfo(String name, String ip, int port, List<ClientInfo> knownClients,
+                         HashMap<String, SocketInfo> chatConnections) implements Serializable {
     public ClientInfo(Client client) {
-        this(client.getName(), client.getIpAddress(), client.getPort());
+        this(client.getName(), client.getIpAddress(), client.getPort(), client.getConnectedClients(), client.getChatConnections());
     }
 
     @Override
@@ -27,7 +30,7 @@ public record ClientInfo(String name, String ip, int port) implements Serializab
 
     @Override
     public int hashCode() {
-        return Objects.hash(name, ip, port);
+        return Objects.hash(name, ip, port, chatConnections);
     }
 
 }

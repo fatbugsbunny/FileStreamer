@@ -17,7 +17,7 @@ class ClientTest {
     @Test
     void clientConnectsToServer() throws IOException, InterruptedException, ClassNotFoundException {
         Server server = new Server();
-        server.start();
+        server.start(1024);
         Client client = new Client("Jake");
         assertDoesNotThrow(() -> client.connect("192.168.1.2", 1024));
     }
