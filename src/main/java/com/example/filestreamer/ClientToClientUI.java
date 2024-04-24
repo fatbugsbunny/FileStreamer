@@ -24,7 +24,7 @@ public class ClientToClientUI extends JFrame implements IsUI {
     private JTextArea chatBox;
     private DefaultListModel<String> listModel;
 
-    public ClientToClientUI(ClientConnection clientConnection, String connectClientName, String ourName) throws IOException, ClassNotFoundException {
+    public ClientToClientUI(ClientConnection clientConnection, String connectClientName, ClientInfo ourClient) throws IOException, ClassNotFoundException {
         clientName.setText(connectClientName);
 
         clientConnection.getAvailableFiles().forEach(listModel::addElement);
@@ -36,7 +36,7 @@ public class ClientToClientUI extends JFrame implements IsUI {
         setSize(400, 400);
 
         System.out.println("INITIATING CHAT");
-        SocketInfo chatServer = clientConnection.initiateChat(ourName);
+        SocketInfo chatServer = clientConnection.initiateChat(ourClient);
         Socket socket = new Socket(chatServer.ip(), chatServer.port());
         System.out.println("CHAT INITIATEd");
 

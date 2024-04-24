@@ -4,24 +4,26 @@ import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.net.*;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.UnknownHostException;
+import java.util.*;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 public class Client extends AbstractServer implements Runnable, WindowCloseListener, HasLocalFiles {
 
     private final CountDownLatch countDownLatch = new CountDownLatch(1);
+    private final String id = UUID.randomUUID().toString();
     private final String name;
     private final String ipAddress;
-    private final ConcurrentHashMap<String, SocketInfo> chatConnections = new ConcurrentHashMap<>();
 
     public Client(String name) {
         ipAddress = getIp();
         this.name = name;
+    }
+
+    public String getId() {
+        return id;
     }
 
     public void start() throws IOException {
@@ -29,7 +31,7 @@ public class Client extends AbstractServer implements Runnable, WindowCloseListe
             port = serverSocket.getLocalPort();
             countDownLatch.countDown();
             while (true) {
-                Socket clientSocket = serverSocket.accept();
+                java.net.Socket clientSocket = serverSocket.accept();
                 pool.execute(() -> {
                     try {
                         var clientInput = new ObjectInputStream(clientSocket.getInputStream());
@@ -42,11 +44,11 @@ public class Client extends AbstractServer implements Runnable, WindowCloseListe
 
                                 case ADD_CLIENT -> {
                                     ClientInfo clientInfo = (ClientInfo) clientInput.readObject();
-                                    onlineClients.put(clientInfo);
-                                    //checkIfClientIsOnline(clientInfo);
+                                    onlineClients.put(clientInfo.id(), clientInfo);
+                                    checkIfClientIsOnline(clientInfo);
                                 }
 
-                                case GET_KNOWN_CLIENTS -> clientOutput.writeObject(List.of(onlineClients.toArray()));
+                                case GET_KNOWN_CLIENTS -> clientOutput.writeObject(List.of(onlineClients.values()));
 
                                 case DOWNLOAD -> {
                                     System.out.println("DOWNLOAD REACHED");
@@ -65,26 +67,18 @@ public class Client extends AbstractServer implements Runnable, WindowCloseListe
 
                                 case INITIATE_CHAT -> {
                                     System.out.println("INITIATING CHAT IN CLIENTS NOW");
-                                    String name = clientInput.readUTF();
+                                    ClientInfo clientInfo = (ClientInfo) clientInput.readObject();
+
                                     ServerSocket chatServer = new ServerSocket(0);
                                     InetAddress localHost = InetAddress.getLocalHost();
                                     clientOutput.writeObject(new SocketInfo(localHost.getHostAddress(), chatServer.getLocalPort()));
-
-                                    Socket chatConnection = chatServer.accept();
-                                    chatConnections.put(name, new SocketInfo(chatConnection));
-                                    System.out.println(name + "KEYSET" + chatConnections.keySet());
-                                    System.out.println("CHAT CONNECTIONS IN CLINT" + chatConnections.values());
-
-                                    Socket socket = new Socket("192.168.56.1", 1024);
-                                    ServerConnection serverConnection = new ServerConnection(socket, this.name);
-                                    serverConnection.addClient(new ClientInfo(this));
-                                    System.out.println("CHAT CONNECTIONS IN CLINT" + chatConnections.values());
+                                    new ChatBox(chatServer.accept(), clientInfo.name());
                                 }
 
                                 default -> throw new IllegalStateException("Unexpected value");
                             }
                         }
-                    } catch (IOException | ClassNotFoundException | InterruptedException e) {
+                    } catch (IOException | ClassNotFoundException e) {
                         throw new RuntimeException(e);
                     }
 
@@ -103,9 +97,6 @@ public class Client extends AbstractServer implements Runnable, WindowCloseListe
         }
     }
 
-    public HashMap<String, SocketInfo> getChatConnections() {
-        return new HashMap<>(chatConnections);
-    }
 
     public void shutDown() {
         pool.shutdown();
@@ -114,29 +105,13 @@ public class Client extends AbstractServer implements Runnable, WindowCloseListe
     public void connect(String ip, int port) throws IOException, InterruptedException, ClassNotFoundException {
         pool.execute(this);
         countDownLatch.await();
-        Socket serverSocket = new Socket(ip, port);
+        java.net.Socket serverSocket = new java.net.Socket(ip, port);
         ServerConnection serverConnection = new ServerConnection(serverSocket, name);
 
         serverConnection.addClient(new ClientInfo(this));
         System.out.println(this.port);
 
         new MainUI(serverConnection, this, this);
-    }
-
-    public void checkIfClientIsOnline(ClientInfo clientInfo) {
-        scheduler.scheduleAtFixedRate(() -> {
-            try {
-                Socket socket = new Socket();
-                socket.connect(new InetSocketAddress(clientInfo.ip(), clientInfo.port()), 1000); // Timeout set to 1 second
-                System.out.println("Server socket is still accepting connections.");
-                socket.close();
-            } catch (IOException e) {
-                System.out.println("Removed " + onlineClients.remove(clientInfo));
-                System.out.println("Removed from map" + chatConnections.remove(clientInfo.name()));
-                System.err.println("Error: " + e.getMessage());
-                throw new RuntimeException();
-            }
-        }, 0, 5, TimeUnit.SECONDS);
     }
 
     public HashMap<String, File> getFilesInFolder() {
@@ -154,8 +129,8 @@ public class Client extends AbstractServer implements Runnable, WindowCloseListe
         return localhost.getHostAddress();
     }
 
-    public ArrayList<ClientInfo> getConnectedClients() {
-        return new ArrayList<>(onlineClients);
+    public Map<String, ClientInfo> getConnectedClients() {
+        return onlineClients;
     }
 
     public String getIpAddress() {

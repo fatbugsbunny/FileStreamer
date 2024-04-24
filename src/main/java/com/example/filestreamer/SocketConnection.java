@@ -1,8 +1,7 @@
 package com.example.filestreamer;
 
 import java.io.*;
-import java.net.Socket;
-import java.util.List;
+import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -10,11 +9,11 @@ import java.util.concurrent.Executors;
 
 public abstract class SocketConnection {
     protected final ExecutorService pool = Executors.newCachedThreadPool();
-    protected final Socket socket;
+    protected final java.net.Socket socket;
     protected final ObjectInputStream in;
     protected final ObjectOutputStream out;
 
-    protected SocketConnection(Socket socket) throws IOException {
+    protected SocketConnection(java.net.Socket socket) throws IOException {
         this.socket = socket;
         out = new ObjectOutputStream(socket.getOutputStream());
         System.out.println("ccc");
@@ -47,9 +46,9 @@ public abstract class SocketConnection {
         out.writeObject(client);
     }
 
-    public List<ClientInfo> getKnownClients() throws IOException, ClassNotFoundException {
+    public Collection<ClientInfo> getKnownClients() throws IOException, ClassNotFoundException {
         out.writeObject(Constants.ServerActions.GET_KNOWN_CLIENTS);
-        return (List<ClientInfo>) in.readObject();
+        return (Collection<ClientInfo>) in.readObject();
     }
 
     abstract Set<String> getAvailableFiles() throws IOException, ClassNotFoundException;
